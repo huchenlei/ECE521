@@ -64,10 +64,9 @@ b = tf.Variable(tf.zeros(1, dtype=tf.float32))
 
 pred_y = tf.add(tf.matmul(x, w), b)
 mse = tf.reduce_mean(tf.square(pred_y - raw_y)) / 2
+wd = tf.multiply(lamb / 2, tf.reduce_sum(tf.square(w)))  # weight decay loss
 
-# TODO add wd to loss
-
-loss = mse
+loss = mse + wd
 
 optimizer = tf.train.GradientDescentOptimizer(learning_rate).minimize(loss)
 
@@ -87,11 +86,12 @@ def loss_wrapper(sess, lamb_):
 
 
 def run_diff_rates():
-    print("Q1:")
     rates = [0.005, 0.001, 0.0001]
     rate_losses = []
     plt.figure(0)
     plt.title("Q1")
+    plt.xlabel("epoch")
+    plt.ylabel("loss")
     for rate in rates:
         sess, losses = train_model(optimizer, ITER_NUM, 500, trainData, trainTarget, rate=rate, l=0, vxs=validData,
                                    vys=validTarget)
@@ -99,16 +99,15 @@ def run_diff_rates():
         rate_losses.append(rate_loss)
         print("training rate: %f\t loss: %f" % (rate, rate_loss))
 
-        plt.plot(range(len(losses)), losses)
+        plt.plot(range(len(losses)), losses, label="rate=" + str(rate))
 
+    plt.grid()
+    plt.legend()
     plt.show()
     return rates[rate_losses.index(min(rate_losses))]
 
 
-best_rate = run_diff_rates()
-
-
-def run_diff_batches():
+def run_diff_batches(best_rate):
     batches = [500, 1500, 3500]
     batch_losses = [
         loss_wrapper(train_model(optimizer, ITER_NUM, batch, trainData, trainTarget, rate=best_rate, l=0, vxs=validData,
@@ -116,8 +115,68 @@ def run_diff_batches():
         for batch in batches
         ]
 
-    print("Q2:")
     for (batch, batch_losses) in zip(batches, batch_losses):
         print("batch size: %08d\t loss: %f" % (batch, batch_losses))
 
-run_diff_batches()
+
+def run_diff_lambs():
+    lambs = [0, 0.001, 0.1, 1]
+    for l in lambs:
+        sess, _ = train_model(optimizer, ITER_NUM, 500, trainData, trainTarget, rate=0.005, l=l, vxs=validData,
+                              vys=validTarget)
+        test_result = sess.run(loss, feed_dict={
+            raw_x: testData,
+            raw_y: testTarget,
+            lamb: l
+        })
+        valid_result = sess.run(loss, feed_dict={
+            raw_x: validData,
+            raw_y: validTarget,
+            lamb: l
+        })
+        sess.close()
+        print("lambda: %f\t test loss: %f\t validation loss: %f" % (l, test_result, valid_result))
+
+
+def run_normal_equation():
+    w_normal = \
+        tf.matmul(tf.matrix_inverse(tf.matmul(x, x, transpose_a=True)),
+                  tf.matmul(x, raw_y, transpose_a=True))
+
+    pred_y_normal = tf.add(tf.matmul(x, w_normal), b)
+    mse_normal = tf.reduce_mean(tf.square(pred_y_normal - raw_y)) / 2
+
+    with tf.Session() as sess:
+        sess.run(tf.global_variables_initializer())
+        result = sess.run(mse_normal, feed_dict={
+            raw_x: trainData,
+            raw_y: trainTarget,
+        })
+        print("normal equation training loss: %f" % result)
+
+
+def run_sgd_equation():
+    sess, _ = train_model(optimizer, ITER_NUM, 500, trainData, trainTarget, rate=0.005, l=0, vxs=validData,
+                          vys=validTarget)
+    train_result = sess.run(loss, feed_dict={
+        raw_x: trainData,
+        raw_y: trainTarget,
+        lamb: 0
+    })
+    print("SGD training loss: %f" % train_result)
+
+
+if __name__ == "__main__":
+    print("Q1")
+    best_rate = run_diff_rates()
+    print("Best learning rate is %f" % best_rate)
+
+    print("Q2")
+    run_diff_batches(best_rate)
+
+    print("Q3")
+    run_diff_lambs()
+
+    print("Q4")
+    run_normal_equation()
+    run_sgd_equation()
