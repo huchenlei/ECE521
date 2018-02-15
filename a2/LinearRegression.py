@@ -53,17 +53,19 @@ def train_model(optimizer, iter_num, batch_size, xs, ys, rate, l, vxs, vys):
 trainData, trainTarget, validData, validTarget, testData, testTarget = load_data()
 
 raw_x = tf.placeholder(tf.float32, [None, 28, 28], name="input_x")
-x = tf.reshape(raw_x, [-1, 28 * 28])
+_x = tf.reshape(raw_x, [-1, 28 * 28])
+x = tf.concat([tf.ones([tf.shape(_x)[0], 1]), _x], 1)
+
 raw_y = tf.placeholder(tf.float32, [None, 1], name="input_y")
+y = raw_y
 
 learning_rate = tf.placeholder(tf.float32, name='learning_rate')
 lamb = tf.placeholder(tf.float32, name='lambda')
 
-w = tf.Variable(tf.zeros([28 * 28, 1], dtype=tf.float32))
-b = tf.Variable(tf.zeros(1, dtype=tf.float32))
+w = tf.Variable(tf.zeros([28 * 28 + 1, 1], dtype=tf.float32))
 
-pred_y = tf.add(tf.matmul(x, w), b)
-mse = tf.reduce_mean(tf.square(pred_y - raw_y)) / 2
+pred_y = tf.matmul(x, w)
+mse = tf.reduce_mean(tf.square(pred_y - y)) / 2
 wd = tf.multiply(lamb / 2, tf.reduce_sum(tf.square(w)))  # weight decay loss
 
 loss = mse + wd
@@ -139,12 +141,11 @@ def run_diff_lambs():
 
 
 def run_normal_equation():
-    x_normal = tf.concat([tf.ones([tf.shape(x)[0], 1]), x], 1)
     w_normal = \
-        tf.matmul(tf.matrix_inverse(tf.matmul(x_normal, x_normal, transpose_a=True)),
-                  tf.matmul(x_normal, raw_y, transpose_a=True))
+        tf.matmul(tf.matrix_inverse(tf.matmul(x, x, transpose_a=True)),
+                  tf.matmul(x, raw_y, transpose_a=True))
 
-    pred_y_normal = tf.matmul(x_normal, w_normal)
+    pred_y_normal = tf.matmul(x, w_normal)
     mse_normal = tf.reduce_mean(tf.square(pred_y_normal - raw_y)) / 2
 
     with tf.Session() as sess:
@@ -154,7 +155,6 @@ def run_normal_equation():
             raw_y: trainTarget,
         })
         print("normal equation training loss: %f" % result)
-
 
 
 def run_sgd_equation():
