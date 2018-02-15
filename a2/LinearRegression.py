@@ -139,11 +139,12 @@ def run_diff_lambs():
 
 
 def run_normal_equation():
+    x_normal = tf.concat([tf.ones([tf.shape(x)[0], 1]), x], 1)
     w_normal = \
-        tf.matmul(tf.matrix_inverse(tf.matmul(x, x, transpose_a=True)),
-                  tf.matmul(x, raw_y, transpose_a=True))
+        tf.matmul(tf.matrix_inverse(tf.matmul(x_normal, x_normal, transpose_a=True)),
+                  tf.matmul(x_normal, raw_y, transpose_a=True))
 
-    pred_y_normal = tf.add(tf.matmul(x, w_normal), b)
+    pred_y_normal = tf.matmul(x_normal, w_normal)
     mse_normal = tf.reduce_mean(tf.square(pred_y_normal - raw_y)) / 2
 
     with tf.Session() as sess:
@@ -155,6 +156,7 @@ def run_normal_equation():
         print("normal equation training loss: %f" % result)
 
 
+
 def run_sgd_equation():
     sess, _ = train_model(optimizer, ITER_NUM, 500, trainData, trainTarget, rate=0.005, l=0, vxs=validData,
                           vys=validTarget)
@@ -163,6 +165,7 @@ def run_sgd_equation():
         raw_y: trainTarget,
         lamb: 0
     })
+    sess.close()
     print("SGD training loss: %f" % train_result)
 
 
