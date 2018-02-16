@@ -147,6 +147,7 @@ def run_normal_equation():
 
     pred_y_normal = tf.matmul(x, w_normal)
     mse_normal = tf.reduce_mean(tf.square(pred_y_normal - raw_y)) / 2
+    accuracy = tf.reduce_mean(tf.to_float(tf.equal(tf.to_float(tf.greater(pred_y_normal, 0.5)), raw_y)))
 
     with tf.Session() as sess:
         sess.run(tf.global_variables_initializer())
@@ -154,7 +155,14 @@ def run_normal_equation():
             raw_x: trainData,
             raw_y: trainTarget,
         })
+
         print("normal equation training loss: %f" % result)
+
+        test_acc = sess.run(accuracy, feed_dict={raw_x: testData, raw_y: testTarget})
+        train_acc = sess.run(accuracy, feed_dict={raw_x: trainData, raw_y: trainTarget})
+        valid_acc = sess.run(accuracy, feed_dict={raw_x: validData, raw_y: validTarget})
+
+        print("normal equation training/test/validation accuracy: %f\t%f\t%f" % (train_acc, test_acc, valid_acc))
 
 
 def run_sgd_equation():
