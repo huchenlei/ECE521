@@ -71,6 +71,7 @@ wd = tf.multiply(lamb / 2, tf.reduce_sum(tf.square(w)))  # weight decay loss
 loss = mse + wd
 
 optimizer = tf.train.GradientDescentOptimizer(learning_rate).minimize(loss)
+optimizer_adam = tf.train.AdamOptimizer(learning_rate).minimize(loss)
 
 init = tf.global_variables_initializer()
 
@@ -143,11 +144,11 @@ def run_diff_lambs():
 def run_normal_equation():
     w_normal = \
         tf.matmul(tf.matrix_inverse(tf.matmul(x, x, transpose_a=True)),
-                  tf.matmul(x, raw_y, transpose_a=True))
+                  tf.matmul(x, y, transpose_a=True))
 
     pred_y_normal = tf.matmul(x, w_normal)
-    mse_normal = tf.reduce_mean(tf.square(pred_y_normal - raw_y)) / 2
-    accuracy = tf.reduce_mean(tf.to_float(tf.equal(tf.to_float(tf.greater(pred_y_normal, 0.5)), raw_y)))
+    mse_normal = tf.reduce_mean(tf.square(pred_y_normal - y)) / 2
+    accuracy = tf.reduce_mean(tf.to_float(tf.equal(tf.to_float(tf.greater(pred_y_normal, 0.5)), y)))
 
     with tf.Session() as sess:
         sess.run(tf.global_variables_initializer())
@@ -175,6 +176,29 @@ def run_sgd_equation():
     })
     sess.close()
     print("SGD training loss: %f" % train_result)
+
+
+def run_linear():
+    """ for comparison with logistic regression """
+    iter_num = 5000
+    batch_size = 500
+    sess = tf.Session()
+    sess.run(tf.global_variables_initializer())
+    losses = []
+    for ep_i in range(math.ceil(iter_num / batch_size)):
+        for (chunk_x, chunk_y) in zip(make_chunks(trainData, batch_size),
+                                      make_chunks(trainTarget, batch_size)):
+            sess.run(optimizer_adam, feed_dict={raw_x: chunk_x,
+                                                raw_y: chunk_y,
+                                                learning_rate: 0.001,
+                                                lamb: 0})
+        losses.append(sess.run(loss, feed_dict={
+            raw_x: trainData,
+            raw_y: trainTarget,
+            lamb: 0
+        }))
+    sess.close()
+    return losses
 
 
 if __name__ == "__main__":

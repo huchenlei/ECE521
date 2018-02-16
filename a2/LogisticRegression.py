@@ -3,6 +3,8 @@ import tensorflow as tf
 import matplotlib.pyplot as plt
 import math
 
+from a2.LinearRegression import run_linear
+
 
 def load_data():
     with np.load("./data/notMNIST.npz") as data:
@@ -50,7 +52,8 @@ ce = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(labels=y, logits=lin
 wd = tf.multiply(lamb / 2, tf.reduce_sum(tf.square(w)), name="weight_decay_loss")
 
 loss = ce + wd
-accuracy = tf.reduce_mean(tf.to_float(tf.equal(tf.round(pred_y), y)))
+# accuracy = tf.reduce_mean(tf.to_float(tf.equal(tf.round(pred_y), y)))
+accuracy = tf.reduce_mean(tf.to_float(tf.equal(tf.to_float(tf.greater(pred_y, 0.5)), y)))
 
 optimizer = tf.train.GradientDescentOptimizer(learning_rate).minimize(loss)
 optimizer_adam = tf.train.AdamOptimizer(learning_rate).minimize(loss)
@@ -59,11 +62,11 @@ init = tf.global_variables_initializer()
 
 ITER_NUM = 5000  # total iteration
 BATCH_SIZE = 500
-LEARNING_RATE = 0.005
+LEARNING_RATE = 0.001
 LAMBDA = 0.01
 
 
-def train_model(optimizer):
+def train_model(optimizer, l=LAMBDA):
     train_ces = []
     valid_ces = []
     train_accs = []
@@ -72,17 +75,17 @@ def train_model(optimizer):
     train_dict = {
         raw_x: trainData,
         raw_y: trainTarget,
-        lamb: LAMBDA
+        lamb: l
     }
     valid_dict = {
         raw_x: validData,
         raw_y: validTarget,
-        lamb: LAMBDA
+        lamb: l
     }
     test_dict = {
         raw_x: testData,
         raw_y: testTarget,
-        lamb: LAMBDA
+        lamb: l
     }
     sess = tf.Session()
     sess.run(tf.global_variables_initializer())
@@ -93,7 +96,7 @@ def train_model(optimizer):
             sess.run(optimizer, feed_dict={raw_x: chunk_x,
                                            raw_y: chunk_y,
                                            learning_rate: LEARNING_RATE,
-                                           lamb: LAMBDA})
+                                           lamb: l})
         train_ces.append(sess.run(ce, feed_dict=train_dict))
         valid_ces.append(sess.run(ce, feed_dict=valid_dict))
         train_accs.append(sess.run(accuracy, feed_dict=train_dict))
@@ -144,10 +147,58 @@ def run_adam():
     plt.legend()
 
 
+def run_adam_zl():
+    """ run adam with zero lambda """
+    _, _, train_accs, valid_accs, test_accs = train_model(optimizer=optimizer_adam, l=0)
+    print("logistic regression training/test/validation accuracy: %f\t%f\t%f" % (
+        train_accs[-1], valid_accs[-1], test_accs[-1]))
+
+
+def compare_linear_logistic():
+    train_ces, _, _, _, _ = train_model(optimizer=optimizer_adam)
+    train_mses = run_linear()
+
+    ep_range = range(len(train_ces))
+    plt.figure(3)
+    plt.title("Q3")
+    plt.xlabel("epoch")
+    plt.ylabel("loss")
+    plt.plot(ep_range, train_ces, label="logistic cross entropy loss")
+    plt.plot(ep_range, train_mses, label="linear mean square error loss")
+    plt.grid()
+    plt.legend()
+
+    my_pred_y = tf.placeholder(tf.float32, name="my_pred_y")
+    my_y = tf.placeholder(tf.float32, name="my_y")
+
+    my_mse = tf.reduce_mean(tf.square(my_pred_y - my_y)) / 2
+    # take my_y as 0
+    my_ce = tf.reduce_mean(tf.negative(tf.log(1 - my_pred_y)))
+
+    Y = np.linspace(0, 1, num=100)
+    M = []
+    C = []
+    with tf.Session() as sess:
+        for val in Y:
+            M.append(sess.run(my_mse, feed_dict={my_pred_y: val, my_y: 0}))
+            C.append(sess.run(my_ce, feed_dict={my_pred_y: val, my_y: 0}))
+
+    plt.figure(4)
+    plt.title("Q3")
+    plt.xlabel("predicted y")
+    plt.ylabel("loss")
+    plt.plot(Y, M, label="mean square error")
+    plt.plot(Y, C, label="cross-entropy")
+    plt.grid()
+    plt.legend()
+
 if __name__ == "__main__":
     print("Q1")
     run_logistic()
     print("Q2")
     run_adam()
+    print("Q3")
+    run_adam_zl()
+    compare_linear_logistic()
 
     plt.show()
