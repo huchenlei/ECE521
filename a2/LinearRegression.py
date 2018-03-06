@@ -184,7 +184,7 @@ def run_linear():
     sess = tf.Session()
     sess.run(tf.global_variables_initializer())
     losses = []
-    for ep_i in range(math.ceil(iter_num / batch_size)):
+    for ep_i in range(int(math.ceil(iter_num / (len(trainData) / batch_size)))):
         for (chunk_x, chunk_y) in zip(make_chunks(trainData, batch_size),
                                       make_chunks(trainTarget, batch_size)):
             sess.run(optimizer_adam, feed_dict={raw_x: chunk_x,

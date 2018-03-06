@@ -192,6 +192,7 @@ def compare_linear_logistic():
     plt.grid()
     plt.legend()
 
+
 if __name__ == "__main__":
     print("Q1")
     run_logistic()
