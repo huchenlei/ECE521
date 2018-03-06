@@ -65,59 +65,58 @@ pred_y, top_k_y = knn_predict(distance_func(new_x, train_x), train_y, k)
 
 error = tf.reduce_mean(tf.to_float(tf.equal(pred_y, new_y)))
 
-sess = tf.InteractiveSession()
+with tf.InteractiveSession() as sess:
+    kv = [1, 5, 10, 25, 50, 100, 200]
+    for kc in kv:
+        e_valid = sess.run(error, feed_dict={
+            k: kc,
+            train_x: trainData,
+            train_y: trainTarget,
+            new_x: validData,
+            new_y: validTarget
+        })
+        e_test = sess.run(error, feed_dict={
+            k: kc,
+            train_x: trainData,
+            train_y: trainTarget,
+            new_x: testData,
+            new_y: testTarget
+        })
+        print("k: %d\t validation accuracy: %f\t test accuracy: %f" % (kc, e_valid, e_test))
 
-kv = [1, 5, 10, 25, 50, 100, 200]
-for kc in kv:
-    e_valid = sess.run(error, feed_dict={
-        k: kc,
-        train_x: trainData,
-        train_y: trainTarget,
-        new_x: validData,
-        new_y: validTarget
-    })
-    e_test = sess.run(error, feed_dict={
-        k: kc,
-        train_x: trainData,
-        train_y: trainTarget,
-        new_x: testData,
-        new_y: testTarget
-    })
-    print("k: %d\t validation accuracy: %f\t test accuracy: %f" % (kc, e_valid, e_test))
+    error_index = 2  # How many error case to display
+    error_seen = 0
 
-error_index = 2  # How many error case to display
-error_seen = 0
+    for i, td in enumerate(testData):
+        feed_dict = {
+            k: 10,
+            train_x: trainData,
+            train_y: trainTarget,
+            new_x: [td]
+        }
+        y = sess.run(pred_y, feed_dict=feed_dict)
+        top_y_indices = sess.run(top_k_y, feed_dict=feed_dict)
 
-for i, td in enumerate(testData):
-    feed_dict = {
-        k: 10,
-        train_x: trainData,
-        train_y: trainTarget,
-        new_x: [td]
-    }
-    y = sess.run(pred_y, feed_dict=feed_dict)
-    top_y_indices = sess.run(top_k_y, feed_dict=feed_dict)
+        if y[0] != testTarget[i]:
+            error_seen += 1
+            print(i, y[0], testTarget[i])
 
-    if y[0] != testTarget[i]:
-        error_seen += 1
-        print(i, y[0], testTarget[i])
+            # Show the input data
+            img_arr = np.uint8(td.reshape(32, 32) * 255)
+            im = Image.fromarray(img_arr, 'L')
+            im.show(title="new_x")
 
-        # Show the input data
-        img_arr = np.uint8(td.reshape(32, 32) * 255)
-        im = Image.fromarray(img_arr, 'L')
-        im.show(title="new_x")
+            # show the top 10 nearest
+            imgs = Image.new('L', (32 * 10, 32))
+            x_offset = 0
+            for j, index in enumerate(top_y_indices[0]):
+                print("%d: face %d" % (j, trainTarget[index]))
 
-        # show the top 10 nearest
-        imgs = Image.new('L', (32 * 10, 32))
-        x_offset = 0
-        for j, index in enumerate(top_y_indices[0]):
-            print("%d: face %d" % (j, trainTarget[index]))
+                img = Image.fromarray(np.uint8(trainData[index].reshape(32, 32) * 255))
+                imgs.paste(img, (x_offset, 0))
+                x_offset += 32
 
-            img = Image.fromarray(np.uint8(trainData[index].reshape(32, 32) * 255))
-            imgs.paste(img, (x_offset, 0))
-            x_offset += 32
+            imgs.show()
 
-        imgs.show()
-
-        if error_seen == error_index:
-            break
+            if error_seen == error_index:
+                break

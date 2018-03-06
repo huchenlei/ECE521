@@ -89,7 +89,7 @@ def train_model(optimizer, l=LAMBDA):
     }
     sess = tf.Session()
     sess.run(tf.global_variables_initializer())
-    ep_range = range(math.ceil(ITER_NUM / BATCH_SIZE))
+    ep_range = range(int(math.ceil(ITER_NUM / (len(trainData) / BATCH_SIZE))))
     for _ in ep_range:
         for (chunk_x, chunk_y) in zip(make_chunks(trainData, BATCH_SIZE),
                                       make_chunks(trainTarget, BATCH_SIZE)):

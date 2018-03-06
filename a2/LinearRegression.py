@@ -35,7 +35,7 @@ def train_model(optimizer, iter_num, batch_size, xs, ys, rate, l, vxs, vys):
     sess = tf.Session()
     sess.run(tf.global_variables_initializer())
     losses = []
-    for ep_i in range(math.ceil(iter_num / batch_size)):
+    for ep_i in range(int(math.ceil(iter_num / (len(xs) / batch_size)))):
         for (chunk_x, chunk_y) in zip(make_chunks(xs, batch_size),
                                       make_chunks(ys, batch_size)):
             sess.run(optimizer, feed_dict={raw_x: chunk_x,
@@ -106,7 +106,6 @@ def run_diff_rates():
 
     plt.grid()
     plt.legend()
-    plt.show()
     return rates[rate_losses.index(min(rate_losses))]
 
 
@@ -215,3 +214,6 @@ if __name__ == "__main__":
     print("Q4")
     run_normal_equation()
     run_sgd_equation()
+
+    plt.show()
+

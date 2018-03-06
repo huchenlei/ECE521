@@ -61,47 +61,45 @@ MSE = tf.reduce_mean(tf.reduce_sum((pred_y - new_y) ** 2, 1)) / 2
 
 X = np.linspace(0.0, 11.0, num=1000)[:, np.newaxis]
 
-sess = tf.InteractiveSession()
+with tf.InteractiveSession() as sess:
+    ks = [1, 3, 5, 50]
 
-ks = [1, 3, 5, 50]
+    for i, kc in enumerate(ks):
+        validation_mse = sess.run(MSE, feed_dict={
+            train_x: trainData,
+            train_y: trainTarget,
+            new_x: validData,
+            new_y: validTarget,
+            k: kc
+        })
 
-for i, kc in enumerate(ks):
-    validation_mse = sess.run(MSE, feed_dict={
-        train_x: trainData,
-        train_y: trainTarget,
-        new_x: validData,
-        new_y: validTarget,
-        k: kc
-    })
+        test_mse = sess.run(MSE, feed_dict={
+            train_x: trainData,
+            train_y: trainTarget,
+            new_x: testData,
+            new_y: testTarget,
+            k: kc
+        })
 
-    test_mse = sess.run(MSE, feed_dict={
-        train_x: trainData,
-        train_y: trainTarget,
-        new_x: testData,
-        new_y: testTarget,
-        k: kc
-    })
+        train_mse = sess.run(MSE, feed_dict={
+            train_x: trainData,
+            train_y: trainTarget,
+            new_x: trainData,
+            new_y: trainTarget,
+            k: kc
+        })
 
-    train_mse = sess.run(MSE, feed_dict={
-        train_x: trainData,
-        train_y: trainTarget,
-        new_x: trainData,
-        new_y: trainTarget,
-        k: kc
-    })
+        print("k = %d\nvalidation MSE: %f, test MSE %f, train MSE %f" % (kc, validation_mse, test_mse, train_mse))
 
-    print("k = %d\nvalidation MSE: %f, test MSE %f, train MSE %f" % (kc, validation_mse, test_mse, train_mse))
+        y = sess.run(pred_y, feed_dict={
+            train_x: trainData,
+            train_y: trainTarget,
+            new_x: X,
+            k: kc
+        })
 
-    y = sess.run(pred_y, feed_dict={
-        train_x: trainData,
-        train_y: trainTarget,
-        new_x: X,
-        k: kc
-    })
-
-    plt.figure(i)
-    plt.plot(trainData, trainTarget, 'ro')
-    plt.plot(X, y, 'b')
-    plt.title("knn regression, k = %d" % kc)
-    plt.show()
-
+        plt.figure(i)
+        plt.plot(trainData, trainTarget, 'ro')
+        plt.plot(X, y, 'b')
+        plt.title("knn regression, k = %d" % kc)
+        plt.show()
