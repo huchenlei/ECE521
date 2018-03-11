@@ -3,6 +3,8 @@ import tensorflow as tf
 import matplotlib.pyplot as plt
 import math
 
+import time
+
 
 def load_data():
     with np.load("./data/notMNIST.npz") as data:
@@ -69,6 +71,7 @@ mse = tf.reduce_mean(tf.square(pred_y - y)) / 2
 wd = tf.multiply(lamb / 2, tf.reduce_sum(tf.square(w)))  # weight decay loss
 
 loss = mse + wd
+accuracy = tf.reduce_mean(tf.to_float(tf.equal(tf.to_float(tf.greater(pred_y, 0.5)), y)))
 
 optimizer = tf.train.GradientDescentOptimizer(learning_rate).minimize(loss)
 optimizer_adam = tf.train.AdamOptimizer(learning_rate).minimize(loss)
@@ -111,14 +114,21 @@ def run_diff_rates():
 
 def run_diff_batches(best_rate):
     batches = [500, 1500, 3500]
-    batch_losses = [
-        loss_wrapper(train_model(optimizer, ITER_NUM, batch, trainData, trainTarget, rate=best_rate, l=0, vxs=validData,
-                                 vys=validTarget)[0], lamb_=0)
-        for batch in batches
-        ]
+    batch_losses = []
+    batch_times = []
+    for batch in batches:
+        start = time.time()
+        batch_losses.append(
+            loss_wrapper(
+                train_model(optimizer, ITER_NUM, batch, trainData, trainTarget, rate=best_rate, l=0, vxs=validData,
+                            vys=validTarget)[0], lamb_=0)
 
-    for (batch, batch_losses) in zip(batches, batch_losses):
-        print("batch size: %08d\t loss: %f" % (batch, batch_losses))
+        )
+        end = time.time()
+        batch_times.append(end - start)
+
+    for (batch, batch_loss, batch_time) in zip(batches, batch_losses, batch_times):
+        print("batch size: %08d\t loss: %f\ttime: %d s" % (batch, batch_loss, batch_time))
 
 
 def run_diff_lambs():
@@ -126,18 +136,18 @@ def run_diff_lambs():
     for l in lambs:
         sess, _ = train_model(optimizer, ITER_NUM, 500, trainData, trainTarget, rate=0.005, l=l, vxs=validData,
                               vys=validTarget)
-        test_result = sess.run(loss, feed_dict={
+        test_result = sess.run(accuracy, feed_dict={
             raw_x: testData,
             raw_y: testTarget,
             lamb: l
         })
-        valid_result = sess.run(loss, feed_dict={
+        valid_result = sess.run(accuracy, feed_dict={
             raw_x: validData,
             raw_y: validTarget,
             lamb: l
         })
         sess.close()
-        print("lambda: %f\t test loss: %f\t validation loss: %f" % (l, test_result, valid_result))
+        print("lambda: %f\t test accuracy: %f\t validation accuracy: %f" % (l, test_result, valid_result))
 
 
 def run_normal_equation():
@@ -216,4 +226,3 @@ if __name__ == "__main__":
     run_sgd_equation()
 
     plt.show()
-
