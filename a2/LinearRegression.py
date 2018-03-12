@@ -151,9 +151,16 @@ def run_diff_lambs():
 
 
 def run_normal_equation():
+    train_raw_x = tf.placeholder(tf.float32, [None, 28, 28], name="train_raw_x")
+    _train_x = tf.reshape(train_raw_x, [-1, 28 * 28])
+    train_x = tf.concat([tf.ones([tf.shape(_train_x)[0], 1]), _train_x], 1)
+    train_y = tf.placeholder(tf.float32, [None, 1], name="train_y")
+
     w_normal = \
-        tf.matmul(tf.matrix_inverse(tf.matmul(x, x, transpose_a=True)),
-                  tf.matmul(x, y, transpose_a=True))
+        tf.matmul(
+            tf.matmul(tf.matrix_inverse(
+                tf.matmul(train_x, train_x, transpose_a=True)),
+                train_x, transpose_b=True), train_y)
 
     pred_y_normal = tf.matmul(x, w_normal)
     mse_normal = tf.reduce_mean(tf.square(pred_y_normal - y)) / 2
@@ -161,23 +168,33 @@ def run_normal_equation():
 
     with tf.Session() as sess:
         sess.run(tf.global_variables_initializer())
+        start = time.time()
         result = sess.run(mse_normal, feed_dict={
             raw_x: trainData,
             raw_y: trainTarget,
+            train_raw_x: trainData,
+            train_y: trainTarget
         })
-
+        end = time.time()
         print("normal equation training loss: %f" % result)
+        print("normal equation takes %f s" % (end - start))
 
-        test_acc = sess.run(accuracy, feed_dict={raw_x: testData, raw_y: testTarget})
-        train_acc = sess.run(accuracy, feed_dict={raw_x: trainData, raw_y: trainTarget})
-        valid_acc = sess.run(accuracy, feed_dict={raw_x: validData, raw_y: validTarget})
+        test_acc = sess.run(accuracy, feed_dict={raw_x: testData, raw_y: testTarget, train_raw_x: trainData,
+                                                 train_y: trainTarget})
+        train_acc = sess.run(accuracy, feed_dict={raw_x: trainData, raw_y: trainTarget, train_raw_x: trainData,
+                                                  train_y: trainTarget})
+        valid_acc = sess.run(accuracy, feed_dict={raw_x: validData, raw_y: validTarget, train_raw_x: trainData,
+                                                  train_y: trainTarget})
 
         print("normal equation training/test/validation accuracy: %f\t%f\t%f" % (train_acc, test_acc, valid_acc))
 
 
 def run_sgd_equation():
+    start = time.time()
     sess, _ = train_model(optimizer, ITER_NUM, 500, trainData, trainTarget, rate=0.005, l=0, vxs=validData,
                           vys=validTarget)
+    end = time.time()
+    print("SGD equation takes %f s" % (end - start))
     train_result = sess.run(loss, feed_dict={
         raw_x: trainData,
         raw_y: trainTarget,
