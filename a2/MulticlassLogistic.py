@@ -55,55 +55,59 @@ accuracy = tf.reduce_mean(tf.to_float(tf.equal(
 
 optimizer = tf.train.AdamOptimizer(learning_rate).minimize(loss)
 
-with tf.Session() as sess:
-    train_accs = []
-    train_ces = []
-    valid_accs = []
-    valid_ces = []
-    test_accs = []
+for LEARNING_RATE in [0.005, 0.001, 0.0001]:
+    with tf.Session() as sess:
+        train_accs = []
+        train_ces = []
+        valid_accs = []
+        valid_ces = []
+        test_accs = []
 
-    train_dict = {raw_x: trainData, raw_y: trainTarget}
-    valid_dict = {raw_x: validData, raw_y: validTarget}
-    test_dict = {raw_x: testData, raw_y: testTarget}
+        train_dict = {raw_x: trainData, raw_y: trainTarget}
+        valid_dict = {raw_x: validData, raw_y: validTarget}
+        test_dict = {raw_x: testData, raw_y: testTarget}
 
-    ITER_NUM = 20000
-    BATCH_SIZE = 500
-    LEARNING_RATE = 0.001  # TODO adjust this val to get better result
-    LAMBDA = 0.01
-    sess.run(tf.global_variables_initializer())
-    ep_range = range(int(math.ceil(ITER_NUM / (len(trainData) / BATCH_SIZE))))
-    for _ in ep_range:
-        for (chunk_x, chunk_y) in zip(make_chunks(trainData, BATCH_SIZE),
-                                      make_chunks(trainTarget, BATCH_SIZE)):
-            sess.run(optimizer, feed_dict={raw_x: chunk_x,
-                                           raw_y: chunk_y,
-                                           learning_rate: LEARNING_RATE,
-                                           lamb: LAMBDA})
+        ITER_NUM = 20000
+        BATCH_SIZE = 500
+        # LEARNING_RATE = 0.001  # TODO adjust this val to get better result
 
-        train_accs.append(sess.run(accuracy, feed_dict=train_dict))
-        train_ces.append(sess.run(ce, feed_dict=train_dict))
-        valid_accs.append(sess.run(accuracy, feed_dict=valid_dict))
-        valid_ces.append(sess.run(ce, feed_dict=valid_dict))
-        test_accs.append(sess.run(accuracy, feed_dict=test_dict))
+        LAMBDA = 0.01
 
-    plt.figure(0)
-    plt.title("Multi-class classification accuracy")
-    plt.xlabel("epoch")
-    plt.ylabel("accuracy")
-    plt.plot(ep_range, train_accs, label="train")
-    plt.plot(ep_range, valid_accs, label="validation")
-    plt.grid()
-    plt.legend()
+        sess.run(tf.global_variables_initializer())
+        ep_range = range(int(math.ceil(ITER_NUM / (len(trainData) / BATCH_SIZE))))
+        for _ in ep_range:
+            for (chunk_x, chunk_y) in zip(make_chunks(trainData, BATCH_SIZE),
+                                          make_chunks(trainTarget, BATCH_SIZE)):
+                sess.run(optimizer, feed_dict={raw_x: chunk_x,
+                                               raw_y: chunk_y,
+                                               learning_rate: LEARNING_RATE,
+                                               lamb: LAMBDA})
 
-    plt.figure(1)
-    plt.title("Multi-class classification cross-entropy")
-    plt.xlabel("epoch")
-    plt.ylabel("cross-entropy")
-    plt.plot(ep_range, train_ces, label="train")
-    plt.plot(ep_range, valid_ces, label="validation")
-    plt.grid()
-    plt.legend()
+            train_accs.append(sess.run(accuracy, feed_dict=train_dict))
+            train_ces.append(sess.run(ce, feed_dict=train_dict))
+            valid_accs.append(sess.run(accuracy, feed_dict=valid_dict))
+            valid_ces.append(sess.run(ce, feed_dict=valid_dict))
+            test_accs.append(sess.run(accuracy, feed_dict=test_dict))
 
-    print("Best testing accuracy is %f" % max(test_accs))  # 89% worse than binary classification
+        plt.figure(0)
+        plt.title("Multi-class classification accuracy")
+        plt.xlabel("epoch")
+        plt.ylabel("accuracy")
+        plt.plot(ep_range, train_accs, label="train" + str(LEARNING_RATE))
+        plt.plot(ep_range, valid_accs, label="validation" + str(LEARNING_RATE))
+        plt.grid()
+        plt.legend()
+
+        plt.figure(1)
+        plt.title("Multi-class classification cross-entropy")
+        plt.xlabel("epoch")
+        plt.ylabel("cross-entropy")
+        plt.plot(ep_range, train_ces, label="train" + str(LEARNING_RATE))
+        plt.plot(ep_range, valid_ces, label="validation" + str(LEARNING_RATE))
+        plt.grid()
+        plt.legend()
+
+        print("For learning rate %f Best testing accuracy is %f" % (
+        LEARNING_RATE, max(test_accs)))  # 89% worse than binary classification
 
 plt.show()
