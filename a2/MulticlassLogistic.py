@@ -63,15 +63,14 @@ for LEARNING_RATE in [0.005, 0.001, 0.0001]:
         valid_ces = []
         test_accs = []
 
-        train_dict = {raw_x: trainData, raw_y: trainTarget}
-        valid_dict = {raw_x: validData, raw_y: validTarget}
-        test_dict = {raw_x: testData, raw_y: testTarget}
-
         ITER_NUM = 20000
         BATCH_SIZE = 500
         # LEARNING_RATE = 0.001  # TODO adjust this val to get better result
-
         LAMBDA = 0.01
+
+        train_dict = {raw_x: trainData, raw_y: trainTarget, lamb: LAMBDA}
+        valid_dict = {raw_x: validData, raw_y: validTarget, lamb: LAMBDA}
+        test_dict = {raw_x: testData, raw_y: testTarget, lamb: LAMBDA}
 
         sess.run(tf.global_variables_initializer())
         ep_range = range(int(math.ceil(ITER_NUM / (len(trainData) / BATCH_SIZE))))
@@ -84,9 +83,9 @@ for LEARNING_RATE in [0.005, 0.001, 0.0001]:
                                                lamb: LAMBDA})
 
             train_accs.append(sess.run(accuracy, feed_dict=train_dict))
-            train_ces.append(sess.run(ce, feed_dict=train_dict))
+            train_ces.append(sess.run(loss, feed_dict=train_dict))
             valid_accs.append(sess.run(accuracy, feed_dict=valid_dict))
-            valid_ces.append(sess.run(ce, feed_dict=valid_dict))
+            valid_ces.append(sess.run(loss, feed_dict=valid_dict))
             test_accs.append(sess.run(accuracy, feed_dict=test_dict))
 
         plt.figure(0)
@@ -107,7 +106,7 @@ for LEARNING_RATE in [0.005, 0.001, 0.0001]:
         plt.grid()
         plt.legend()
 
-        print("For learning rate %f Best testing accuracy is %f" % (
-        LEARNING_RATE, max(test_accs)))  # 89% worse than binary classification
+        print("For learning rate %f validation accuracy/loss is %f %f testing accuracy is %f" % (
+            LEARNING_RATE, max(valid_accs), min(valid_ces), max(test_accs)))  # 89% worse than binary classification
 
 plt.show()

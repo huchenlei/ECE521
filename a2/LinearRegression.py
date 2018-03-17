@@ -211,6 +211,7 @@ def run_linear():
     sess = tf.Session()
     sess.run(tf.global_variables_initializer())
     losses = []
+    accs = []
     for ep_i in range(int(math.ceil(iter_num / (len(trainData) / batch_size)))):
         for (chunk_x, chunk_y) in zip(make_chunks(trainData, batch_size),
                                       make_chunks(trainTarget, batch_size)):
@@ -218,13 +219,16 @@ def run_linear():
                                                 raw_y: chunk_y,
                                                 learning_rate: 0.001,
                                                 lamb: 0})
-        losses.append(sess.run(loss, feed_dict={
+        train_dict = {
             raw_x: trainData,
             raw_y: trainTarget,
             lamb: 0
-        }))
+        }
+        losses.append(sess.run(loss, feed_dict=train_dict))
+        accs.append(sess.run(accuracy, feed_dict=train_dict))
+
     sess.close()
-    return losses
+    return losses, accs
 
 
 if __name__ == "__main__":

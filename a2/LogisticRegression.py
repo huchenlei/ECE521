@@ -52,7 +52,6 @@ ce = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(labels=y, logits=lin
 wd = tf.multiply(lamb / 2, tf.reduce_sum(tf.square(w)), name="weight_decay_loss")
 
 loss = ce + wd
-# accuracy = tf.reduce_mean(tf.to_float(tf.equal(tf.round(pred_y), y)))
 accuracy = tf.reduce_mean(tf.to_float(tf.equal(tf.to_float(tf.greater(pred_y, 0.5)), y)))
 
 optimizer = tf.train.GradientDescentOptimizer(learning_rate).minimize(loss)
@@ -155,8 +154,8 @@ def run_adam_zl():
 
 
 def compare_linear_logistic():
-    train_ces, _, _, _, _ = train_model(optimizer=optimizer_adam)
-    train_mses = run_linear()
+    train_ces, _, train_accs_logistic, _, _ = train_model(optimizer=optimizer_adam)
+    train_mses, train_accs_linear = run_linear()
 
     ep_range = range(len(train_ces))
     plt.figure(3)
@@ -165,6 +164,15 @@ def compare_linear_logistic():
     plt.ylabel("loss")
     plt.plot(ep_range, train_ces, label="logistic cross entropy loss")
     plt.plot(ep_range, train_mses, label="linear mean square error loss")
+    plt.grid()
+    plt.legend()
+
+    plt.figure(4)
+    plt.title("Q3")
+    plt.xlabel("epoch")
+    plt.ylabel("accuracy")
+    plt.plot(ep_range, train_accs_logistic, label="logistic")
+    plt.plot(ep_range, train_accs_linear, label="linear")
     plt.grid()
     plt.legend()
 
@@ -183,7 +191,7 @@ def compare_linear_logistic():
             M.append(sess.run(my_mse, feed_dict={my_pred_y: val, my_y: 0}))
             C.append(sess.run(my_ce, feed_dict={my_pred_y: val, my_y: 0}))
 
-    plt.figure(4)
+    plt.figure(5)
     plt.title("Q3")
     plt.xlabel("predicted y")
     plt.ylabel("loss")
