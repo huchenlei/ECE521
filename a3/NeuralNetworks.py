@@ -2,10 +2,15 @@ import numpy as np
 import tensorflow as tf
 import matplotlib.pyplot as plt
 from functools import reduce
+from PIL import Image
 
 CATEGORIES = ['train', 'test', 'validation']
 MODEL_DIR = './model'
 SEED = 521
+
+
+def model_paths(name):
+    return [MODEL_DIR + "/" + name + checkpoint + ".ckpt" for checkpoint in ["25", "50", "75", "100"]]
 
 
 def load_data():
@@ -131,7 +136,7 @@ def train_model(tf_ctx, data, target, learning_rate=0.005,
             percentage = (100 * i / epoch)
             print("training in progress", percentage, "%")
             if i % save_freq == save_freq - 1:
-                saved_path = saver.save(sess, MODEL_DIR + "/" + name + str(percentage) + ".ckpt")
+                saved_path = saver.save(sess, MODEL_DIR + "/" + name + str(25 * ((i + 1) // save_freq)) + ".ckpt")
                 print(name + " saved to " + saved_path)
 
     print("training complete")
@@ -251,6 +256,48 @@ def create_tf_ctx(x_size, y_size, class_num, layer_sizes):
     }
 
 
+def visualize_model(name, shape=None):
+    if shape is None:
+        shape = [28 * 28, 1000]
+    tf.reset_default_graph()
+    w = tf.get_variable("weight_matrix_1", shape=shape)
+    saver = tf.train.Saver()
+    for path in model_paths(name=name):
+        with tf.Session() as sess:
+            saver.restore(sess, path)
+            w_vals = w.eval().T
+            show_model(w_vals, path)
+
+
+def show_model(w_vals, name, shape=None):
+    """
+    Use PIL to show w_vals as image
+    :param shape: shape of image
+    :param w_vals: weight matrix in shape [1000, 28*28]
+    :param name: name of picture
+    :return: void
+    """
+    if shape is None:
+        shape = [28, 28]
+    # Every row has 10 images
+    row_count = 25
+    output_img = Image.new('L', (row_count * shape[0], (len(w_vals) // row_count) * shape[1]))
+    x_offset = 0
+    y_offset = 0
+
+    for i, w_val in enumerate(w_vals):
+        scale = max(w_val) - min(w_val)
+        print("min:{} max:{} scale:{}".format(min(w_val), max(w_val), scale))
+        img = Image.fromarray(
+            np.uint8((w_val + abs(min(w_val))).reshape(shape[0], shape[1]) * int(255 / scale)))
+        output_img.paste(img, (x_offset, y_offset))
+        x_offset += shape[0]
+        if i % row_count == row_count - 1:
+            x_offset = 0
+            y_offset += shape[1]
+    output_img.show(title=name)
+
+
 def main():
     data, target = load_data()
     trainData = data['train']
@@ -279,7 +326,7 @@ def main():
     # simple_nn_training(tf_ctx_1_3_1, data, target, epoch=50, batch_size=3000, dropout=True)
 
     # 1.3.2
-
+    # visualize_model("simple_nn")
 
 
 if __name__ == '__main__':
