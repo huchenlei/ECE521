@@ -5,6 +5,7 @@ from functools import reduce
 
 CATEGORIES = ['train', 'test', 'validation']
 MODEL_DIR = './model'
+SEED = 521
 
 
 def load_data():
@@ -54,18 +55,22 @@ def simple_nn_init(hidden_activations, num_hidden, data_size=28 * 28,
 
 
 def simple_nn_layer(signal, output_size, input_size=1000,
-                    initializer=tf.contrib.layers.xavier_initializer()):
+                    initializer=tf.contrib.layers.xavier_initializer(),
+                    layer_id=2, keep_prob=1.0):
     x_1 = tf.nn.relu(signal, "x_1")
-    w = tf.get_variable("weight_matrix_2", shape=[input_size, output_size],
+    w = tf.get_variable("weight_matrix_" + str(layer_id), shape=[input_size, output_size],
                         initializer=initializer,
                         dtype=tf.float32)
     bias = tf.Variable(0, dtype=tf.float32)
-    pred_y = tf.add(tf.matmul(x_1, w), bias, name="pred_y")
+    # drop out with 0.5 probability
+    _x_1 = tf.nn.dropout(x_1, keep_prob=keep_prob, seed=SEED)
+    pred_y = tf.add(tf.matmul(_x_1, w), bias, name="pred_y")
     return pred_y, w
 
 
 def train_model(tf_ctx, data, target, learning_rate=0.005,
-                epoch=100, batch_size=3000, name="default_model"):
+                epoch=100, batch_size=3000, name="default_model",
+                dropout=False):
     """
     general method to train a tensorflow model
     :param tf_ctx: tensorflow context, i.e. a dictionary which stores
@@ -76,6 +81,7 @@ def train_model(tf_ctx, data, target, learning_rate=0.005,
     :param epoch: epoch value
     :param batch_size: batch size to use
     :param name: name of the model, used for saving files
+    :param dropout: whether to apply 0.5 prob dropout
     :return:
     """
 
@@ -84,6 +90,8 @@ def train_model(tf_ctx, data, target, learning_rate=0.005,
     error = tf_ctx['error']
     x = tf_ctx['x']
     y = tf_ctx['y']
+    keep_prob = tf_ctx['keep_prob']
+
     base_dict = {
         tf_ctx['wd_coeff']: 0.0003,
         tf_ctx['learning_rate']: learning_rate
@@ -105,15 +113,21 @@ def train_model(tf_ctx, data, target, learning_rate=0.005,
         save_freq = epoch // 4  # save every epoch / 4 epoch
         saver = tf.train.Saver()
 
+        _keep_prob = 0.5 if dropout else 1.0
         for i in range(epoch):
             for (chunk_x, chunk_y) in zip(make_chunks(data['train'], batch_size),
                                           make_chunks(target['train'], batch_size)):
-                sess.run(optimizer, feed_dict={**base_dict, x: chunk_x, y: chunk_y})
+                sess.run(optimizer, feed_dict={**base_dict, x: chunk_x, y: chunk_y,
+                                               keep_prob: _keep_prob})
             for category in CATEGORIES:
                 losses[category].append(
-                    sess.run(loss, feed_dict={**base_dict, x: data[category], y: target[category]}))
+                    sess.run(loss, feed_dict={**base_dict,
+                                              x: data[category], y: target[category],
+                                              keep_prob: 1.0}))
                 errors[category].append(
-                    sess.run(error, feed_dict={**base_dict, x: data[category], y: target[category]}))
+                    sess.run(error, feed_dict={**base_dict,
+                                               x: data[category], y: target[category],
+                                               keep_prob: 1.0}))
             percentage = (100 * i / epoch)
             print("training in progress", percentage, "%")
             if i % save_freq == save_freq - 1:
@@ -142,10 +156,11 @@ def compare_learning_rate(tf_ctx, data, target, epoch, batch_size):
     plt.show()
 
 
-def simple_nn_training(tf_ctx, data, target, epoch, batch_size):
+def simple_nn_training(tf_ctx, data, target, epoch, batch_size, dropout=False):
     losses, errors = train_model(tf_ctx, data, target,
                                  learning_rate=0.005, epoch=epoch, batch_size=batch_size,
-                                 name="simple_nn")
+                                 name="simple_nn",
+                                 dropout=dropout)
     ep_range = range(epoch)
     title_1 = "single hidden layer network losses"
     plt.figure(title_1)
@@ -172,7 +187,9 @@ def simple_nn_training(tf_ctx, data, target, epoch, batch_size):
     plt.show()
 
 
-def create_tf_ctx(x_size, y_size, h_size, class_num):
+def create_tf_ctx(x_size, y_size, class_num, layer_sizes):
+    assert len(layer_sizes) > 0
+
     tf.reset_default_graph()
     input_size = reduce((lambda a, b: a * b), x_size)
     output_size = class_num
@@ -186,18 +203,31 @@ def create_tf_ctx(x_size, y_size, h_size, class_num):
     y = tf.placeholder(tf.int32, shape=y_shape, name="input_y")
     wd_coeff = tf.placeholder(tf.float32, name="weight_decay_coefficient")
     learning_rate = tf.placeholder(tf.float32, name="learning_rate")
+    keep_prob = tf.placeholder(tf.float32, name="keep_prob")
 
     _x = tf.reshape(x, [-1, input_size])
     _y = tf.one_hot(y, depth=output_size, dtype=tf.float32)
 
-    signal, w1 = simple_nn_init(_x, h_size, input_size)
-    linear_pred_y, w2 = simple_nn_layer(signal, output_size, h_size)
+    signal, w1 = simple_nn_init(_x, layer_sizes[0], input_size)
+    signals = [signal]
+    weights = [w1]
+    for i in range(1, len(layer_sizes)):
+        s, w = simple_nn_layer(signals[i - 1], layer_sizes[i], layer_sizes[i - 1],
+                               layer_id=i + 1, keep_prob=keep_prob)
+        signals.append(s)
+        weights.append(w)
+
+    linear_pred_y, w2 = simple_nn_layer(signals[-1], output_size, layer_sizes[-1],
+                                        layer_id=len(layer_sizes) + 1, keep_prob=keep_prob)
+    weights.append(w2)
+
     pred_y = tf.nn.softmax(linear_pred_y)
 
     ce = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(labels=_y, logits=linear_pred_y),
                         name="cross_entropy_loss")
-    wd = tf.multiply(wd_coeff / 2, tf.reduce_sum(tf.square(w1)) + tf.reduce_sum(tf.square(w2)),
-                     name="weight_decay_loss")
+
+    total_w_square = tf.add_n([tf.reduce_mean(tf.square(w)) for w in weights])
+    wd = tf.multiply(wd_coeff / 2, total_w_square, name="weight_decay_loss")
     loss = ce + wd
 
     accuracy = tf.reduce_mean(tf.to_float(tf.equal(
@@ -216,7 +246,8 @@ def create_tf_ctx(x_size, y_size, h_size, class_num):
         'error': error,
         'optimizer': optimizer,
         'wd_coeff': wd_coeff,
-        'learning_rate': learning_rate
+        'learning_rate': learning_rate,
+        'keep_prob': keep_prob
     }
 
 
@@ -230,14 +261,25 @@ def main():
     y_size = np.shape(trainTarget)[1:]
 
     # 1.1.2
-    # tf_ctx_1_1_2 = create_tf_ctx(x_size, y_size, h_size=1000, class_num=class_num)
+    # tf_ctx_1_1_2 = create_tf_ctx(x_size, y_size, layer_sizes=[1000], class_num=class_num)
     # compare_learning_rate(tf_ctx_1_1_2, data, target, epoch=50, batch_size=3000)
     # simple_nn_training(tf_ctx_1_1_2, data, target, epoch=50, batch_size=5000)
 
     # 1.2.1
-    for h_size in [100, 500, 1000]:
-        tf_ctx_1_2_1 = create_tf_ctx(x_size, y_size, h_size, class_num)
-        simple_nn_training(tf_ctx_1_2_1, data, target, epoch=50, batch_size=3000)
+    # for h_size in [100, 500, 1000]:
+    #     tf_ctx_1_2_1 = create_tf_ctx(x_size, y_size, class_num, layer_sizes=[h_size])
+    #     simple_nn_training(tf_ctx_1_2_1, data, target, epoch=50, batch_size=3000)
+
+    # 1.2.2
+    # tf_ctx_1_2_2 = create_tf_ctx(x_size, y_size, class_num, layer_sizes=[500, 500])
+    # simple_nn_training(tf_ctx_1_2_2, data, target, epoch=50, batch_size=3000)
+
+    # 1.3.1
+    # tf_ctx_1_3_1 = create_tf_ctx(x_size, y_size, class_num, layer_sizes=[1000])
+    # simple_nn_training(tf_ctx_1_3_1, data, target, epoch=50, batch_size=3000, dropout=True)
+
+    # 1.3.2
+
 
 
 if __name__ == '__main__':
