@@ -65,7 +65,7 @@ pred_y, top_k_y = knn_predict(distance_func(new_x, train_x), train_y, k)
 
 error = tf.reduce_mean(tf.to_float(tf.equal(pred_y, new_y)))
 
-with tf.InteractiveSession() as sess:
+with tf.Session() as sess:
     kv = [1, 5, 10, 25, 50, 100, 200]
     for kc in kv:
         e_valid = sess.run(error, feed_dict={

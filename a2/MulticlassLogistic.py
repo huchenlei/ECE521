@@ -65,7 +65,7 @@ for LEARNING_RATE in [0.005, 0.001, 0.0001]:
 
         ITER_NUM = 20000
         BATCH_SIZE = 500
-        # LEARNING_RATE = 0.001  # TODO adjust this val to get better result
+        # LEARNING_RATE = 0.001
         LAMBDA = 0.01
 
         train_dict = {raw_x: trainData, raw_y: trainTarget, lamb: LAMBDA}

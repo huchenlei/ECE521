@@ -61,7 +61,7 @@ MSE = tf.reduce_mean(tf.reduce_sum((pred_y - new_y) ** 2, 1)) / 2
 
 X = np.linspace(0.0, 11.0, num=1000)[:, np.newaxis]
 
-with tf.InteractiveSession() as sess:
+with tf.Session() as sess:
     ks = [1, 3, 5, 50]
 
     for i, kc in enumerate(ks):
