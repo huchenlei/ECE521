@@ -287,7 +287,6 @@ def show_model(w_vals, name, shape=None):
 
     for i, w_val in enumerate(w_vals):
         scale = max(w_val) - min(w_val)
-        print("min:{} max:{} scale:{}".format(min(w_val), max(w_val), scale))
         img = Image.fromarray(
             np.uint8((w_val + abs(min(w_val))).reshape(shape[0], shape[1]) * int(255 / scale)))
         output_img.paste(img, (x_offset, y_offset))
@@ -308,25 +307,25 @@ def main():
     y_size = np.shape(trainTarget)[1:]
 
     # 1.1.2
-    # tf_ctx_1_1_2 = create_tf_ctx(x_size, y_size, layer_sizes=[1000], class_num=class_num)
-    # compare_learning_rate(tf_ctx_1_1_2, data, target, epoch=50, batch_size=3000)
-    # simple_nn_training(tf_ctx_1_1_2, data, target, epoch=50, batch_size=5000)
+    tf_ctx_1_1_2 = create_tf_ctx(x_size, y_size, layer_sizes=[1000], class_num=class_num)
+    compare_learning_rate(tf_ctx_1_1_2, data, target, epoch=50, batch_size=3000)
+    simple_nn_training(tf_ctx_1_1_2, data, target, epoch=50, batch_size=5000)
 
     # 1.2.1
-    # for h_size in [100, 500, 1000]:
-    #     tf_ctx_1_2_1 = create_tf_ctx(x_size, y_size, class_num, layer_sizes=[h_size])
-    #     simple_nn_training(tf_ctx_1_2_1, data, target, epoch=50, batch_size=3000)
+    for h_size in [100, 500, 1000]:
+        tf_ctx_1_2_1 = create_tf_ctx(x_size, y_size, class_num, layer_sizes=[h_size])
+        simple_nn_training(tf_ctx_1_2_1, data, target, epoch=50, batch_size=3000)
 
     # 1.2.2
-    # tf_ctx_1_2_2 = create_tf_ctx(x_size, y_size, class_num, layer_sizes=[500, 500])
-    # simple_nn_training(tf_ctx_1_2_2, data, target, epoch=50, batch_size=3000)
+    tf_ctx_1_2_2 = create_tf_ctx(x_size, y_size, class_num, layer_sizes=[500, 500])
+    simple_nn_training(tf_ctx_1_2_2, data, target, epoch=50, batch_size=3000)
 
     # 1.3.1
-    # tf_ctx_1_3_1 = create_tf_ctx(x_size, y_size, class_num, layer_sizes=[1000])
-    # simple_nn_training(tf_ctx_1_3_1, data, target, epoch=50, batch_size=3000, dropout=True)
+    tf_ctx_1_3_1 = create_tf_ctx(x_size, y_size, class_num, layer_sizes=[1000])
+    simple_nn_training(tf_ctx_1_3_1, data, target, epoch=1000, batch_size=3000, dropout=True)
 
     # 1.3.2
-    # visualize_model("simple_nn")
+    visualize_model("simple_nn")
 
 
 if __name__ == '__main__':
