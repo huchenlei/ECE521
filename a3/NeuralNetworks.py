@@ -1,6 +1,7 @@
 import numpy as np
 import tensorflow as tf
 import matplotlib.pyplot as plt
+import random
 from functools import reduce
 from PIL import Image
 
@@ -74,10 +75,11 @@ def simple_nn_layer(signal, output_size, input_size=1000,
 
 
 def train_model(tf_ctx, data, target, learning_rate=0.005,
-                epoch=100, batch_size=3000, name="default_model",
+                epoch=100, batch_size=3000, wd_coeff=0.0003, name="default_model",
                 dropout=False):
     """
     general method to train a tensorflow model
+    :param wd_coeff: weight decay coefficient
     :param tf_ctx: tensorflow context, i.e. a dictionary which stores
     value needed
     :param data: data dict(train, test, validation)
@@ -98,7 +100,7 @@ def train_model(tf_ctx, data, target, learning_rate=0.005,
     keep_prob = tf_ctx['keep_prob']
 
     base_dict = {
-        tf_ctx['wd_coeff']: 0.0003,
+        tf_ctx['wd_coeff']: wd_coeff,
         tf_ctx['learning_rate']: learning_rate
     }
     losses = {
@@ -161,13 +163,13 @@ def compare_learning_rate(tf_ctx, data, target, epoch, batch_size):
     plt.show()
 
 
-def simple_nn_training(tf_ctx, data, target, epoch, batch_size, dropout=False):
+def simple_nn_training(tf_ctx, data, target, epoch, batch_size, dropout=False, name="simple_nn",
+                       learning_rate=0.005, wd_coeff=0.0003):
     losses, errors = train_model(tf_ctx, data, target,
-                                 learning_rate=0.005, epoch=epoch, batch_size=batch_size,
-                                 name="simple_nn",
-                                 dropout=dropout)
+                                 learning_rate=learning_rate, epoch=epoch, batch_size=batch_size,
+                                 wd_coeff=wd_coeff, name=name, dropout=dropout)
     ep_range = range(epoch)
-    title_1 = "single hidden layer network losses"
+    title_1 = "Losses: " + name
     plt.figure(title_1)
     plt.title(title_1)
     plt.xlabel("epoch")
@@ -179,7 +181,7 @@ def simple_nn_training(tf_ctx, data, target, epoch, batch_size, dropout=False):
     plt.legend()
     plt.show()
 
-    title_2 = "single hidden layer network errors"
+    title_2 = "Errors: " + name
     plt.figure(title_2)
     plt.title(title_2)
     plt.xlabel("epoch")
@@ -297,6 +299,22 @@ def show_model(w_vals, name, shape=None):
     output_img.show(title=name)
 
 
+def random_train(x_size, y_size, class_num, data, target, name="random"):
+    layer_size = random.randint(1, 5)
+    layer_sizes = [random.randint(100, 501) for _ in range(layer_size)]
+    dropout = random.choice([True, False])
+    wd_coeff = 10 ** random.uniform(-9, -6)
+    learning_rate = 10 ** random.uniform(-7.5, -4.5)
+
+    info = "Training with {} layers, dropout={} wd_coeff={} learning_rate={}".format(layer_sizes, dropout, wd_coeff,
+                                                                                     learning_rate)
+    print(info)
+
+    tf_ctx_random = create_tf_ctx(x_size, y_size, class_num, layer_sizes=layer_sizes)
+    simple_nn_training(tf_ctx_random, data, target, epoch=1000, batch_size=3000, name=name + ": " + info,
+                       dropout=dropout, wd_coeff=wd_coeff, learning_rate=learning_rate)
+
+
 def main():
     data, target = load_data()
     trainData = data['train']
@@ -309,23 +327,27 @@ def main():
     # 1.1.2
     tf_ctx_1_1_2 = create_tf_ctx(x_size, y_size, layer_sizes=[1000], class_num=class_num)
     compare_learning_rate(tf_ctx_1_1_2, data, target, epoch=50, batch_size=3000)
-    simple_nn_training(tf_ctx_1_1_2, data, target, epoch=50, batch_size=5000)
+    simple_nn_training(tf_ctx_1_1_2, data, target, epoch=150, batch_size=5000, name="1.1.2")
 
     # 1.2.1
     for h_size in [100, 500, 1000]:
         tf_ctx_1_2_1 = create_tf_ctx(x_size, y_size, class_num, layer_sizes=[h_size])
-        simple_nn_training(tf_ctx_1_2_1, data, target, epoch=50, batch_size=3000)
+        simple_nn_training(tf_ctx_1_2_1, data, target, epoch=150, batch_size=3000, name="1.2.1-" + str(h_size))
 
     # 1.2.2
     tf_ctx_1_2_2 = create_tf_ctx(x_size, y_size, class_num, layer_sizes=[500, 500])
-    simple_nn_training(tf_ctx_1_2_2, data, target, epoch=50, batch_size=3000)
+    simple_nn_training(tf_ctx_1_2_2, data, target, epoch=150, batch_size=3000, name="1.2.2")
 
     # 1.3.1
     tf_ctx_1_3_1 = create_tf_ctx(x_size, y_size, class_num, layer_sizes=[1000])
-    simple_nn_training(tf_ctx_1_3_1, data, target, epoch=1000, batch_size=3000, dropout=True)
+    simple_nn_training(tf_ctx_1_3_1, data, target, epoch=150, batch_size=3000, dropout=True, name="1.3.1")
 
     # 1.3.2
     visualize_model("simple_nn")
+
+    # 1.4.1
+    for i in range(5):
+        random_train(x_size, y_size, class_num, data, target, name="random" + str(i))
 
 
 if __name__ == '__main__':
