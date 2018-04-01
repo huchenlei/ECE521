@@ -2,6 +2,7 @@ import numpy as np
 import tensorflow as tf
 import matplotlib.pyplot as plt
 import random
+from tqdm import tqdm
 from functools import reduce
 from PIL import Image
 
@@ -121,7 +122,7 @@ def train_model(tf_ctx, data, target, learning_rate=0.005,
         saver = tf.train.Saver()
 
         _keep_prob = 0.5 if dropout else 1.0
-        for i in range(epoch):
+        for i in tqdm(range(epoch)):
             for (chunk_x, chunk_y) in zip(make_chunks(data['train'], batch_size),
                                           make_chunks(target['train'], batch_size)):
                 sess.run(optimizer, feed_dict={**base_dict, x: chunk_x, y: chunk_y,
@@ -135,11 +136,11 @@ def train_model(tf_ctx, data, target, learning_rate=0.005,
                     sess.run(error, feed_dict={**base_dict,
                                                x: data[category], y: target[category],
                                                keep_prob: 1.0}))
-            percentage = (100 * i / epoch)
-            print("training in progress", percentage, "%")
+            # percentage = (100 * i / epoch)
+            # print("training in progress", percentage, "%")
             if i % save_freq == save_freq - 1:
                 saved_path = saver.save(sess, MODEL_DIR + "/" + name + str(25 * ((i + 1) // save_freq)) + ".ckpt")
-                print(name + " saved to " + saved_path)
+                # print(name + " saved to " + saved_path)
 
     print("training complete")
     return losses, errors
@@ -264,11 +265,11 @@ def visualize_model(name, shape=None):
     tf.reset_default_graph()
     w = tf.get_variable("weight_matrix_1", shape=shape)
     saver = tf.train.Saver()
-    for path in model_paths(name=name):
+    for i, path in enumerate(model_paths(name=name)):
         with tf.Session() as sess:
             saver.restore(sess, path)
             w_vals = w.eval().T
-            show_model(w_vals, path)
+            show_model(w_vals, name + "-" + str(i))
 
 
 def show_model(w_vals, name, shape=None):
@@ -281,22 +282,25 @@ def show_model(w_vals, name, shape=None):
     """
     if shape is None:
         shape = [28, 28]
+    grid_weight = 2
     # Every row has 10 images
     row_count = 25
-    output_img = Image.new('L', (row_count * shape[0], (len(w_vals) // row_count) * shape[1]))
+    output_img = Image.new('L', (row_count * (shape[0] + grid_weight),
+                                 (len(w_vals) // row_count) * (shape[1] + grid_weight)))
     x_offset = 0
     y_offset = 0
 
     for i, w_val in enumerate(w_vals):
         scale = max(w_val) - min(w_val)
         img = Image.fromarray(
-            np.uint8((w_val + abs(min(w_val))).reshape(shape[0], shape[1]) * int(255 / scale)))
+            np.uint8((w_val + abs(min(w_val))).reshape(shape[0], shape[1]) * int(255)))
         output_img.paste(img, (x_offset, y_offset))
-        x_offset += shape[0]
+        x_offset += shape[0] + grid_weight
         if i % row_count == row_count - 1:
             x_offset = 0
-            y_offset += shape[1]
-    output_img.show(title=name)
+            y_offset += shape[1] + grid_weight
+    # output_img.show(title=name)
+    output_img.save("./pic/" + name + ".bmp")
 
 
 def random_train(x_size, y_size, class_num, data, target, name="random"):
@@ -311,7 +315,7 @@ def random_train(x_size, y_size, class_num, data, target, name="random"):
     print(info)
 
     tf_ctx_random = create_tf_ctx(x_size, y_size, class_num, layer_sizes=layer_sizes)
-    simple_nn_training(tf_ctx_random, data, target, epoch=1000, batch_size=3000, name=name + ": " + info,
+    simple_nn_training(tf_ctx_random, data, target, epoch=1000, batch_size=3000, name=name,
                        dropout=dropout, wd_coeff=wd_coeff, learning_rate=learning_rate)
 
 
@@ -343,9 +347,10 @@ def main():
     simple_nn_training(tf_ctx_1_3_1, data, target, epoch=150, batch_size=3000, dropout=True, name="1.3.1")
 
     # 1.3.2
-    visualize_model("simple_nn")
+    visualize_model("1.1.2")
+    visualize_model("1.3.1")
 
-    # 1.4.1
+    # # 1.4.1
     for i in range(5):
         random_train(x_size, y_size, class_num, data, target, name="random" + str(i))
 
