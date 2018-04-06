@@ -1,9 +1,10 @@
+import random
+from functools import reduce
+
+import math
+import matplotlib.pyplot as plt
 import numpy as np
 import tensorflow as tf
-import matplotlib.pyplot as plt
-import random
-from tqdm import tqdm
-from functools import reduce
 from PIL import Image
 
 CATEGORIES = ['train', 'test', 'validation']
@@ -75,11 +76,17 @@ def simple_nn_layer(signal, output_size, input_size=1000,
     return pred_y, w
 
 
+def save_model(sess, name):
+    saver = tf.train.Saver()
+    return saver.save(sess, MODEL_DIR + "/" + name + ".ckpt")
+
+
 def train_model(tf_ctx, data, target, learning_rate=0.005,
                 epoch=100, batch_size=3000, wd_coeff=0.0003, name="default_model",
-                dropout=False):
+                dropout=False, overfit_threshold=0.03):
     """
     general method to train a tensorflow model
+    :param overfit_threshold: the error bound to judge whether the model gets overfit
     :param wd_coeff: weight decay coefficient
     :param tf_ctx: tensorflow context, i.e. a dictionary which stores
     value needed
@@ -119,10 +126,11 @@ def train_model(tf_ctx, data, target, learning_rate=0.005,
         sess.run(tf.global_variables_initializer())
         sess.run(tf.local_variables_initializer())
         save_freq = epoch // 4  # save every epoch / 4 epoch
-        saver = tf.train.Saver()
 
         _keep_prob = 0.5 if dropout else 1.0
-        for i in tqdm(range(epoch)):
+        prev_percentage = 0
+
+        for i in range(epoch):
             for (chunk_x, chunk_y) in zip(make_chunks(data['train'], batch_size),
                                           make_chunks(target['train'], batch_size)):
                 sess.run(optimizer, feed_dict={**base_dict, x: chunk_x, y: chunk_y,
@@ -136,11 +144,25 @@ def train_model(tf_ctx, data, target, learning_rate=0.005,
                     sess.run(error, feed_dict={**base_dict,
                                                x: data[category], y: target[category],
                                                keep_prob: 1.0}))
-            # percentage = (100 * i / epoch)
-            # print("training in progress", percentage, "%")
+
+            percentage = int(100 * i / epoch)
+            if prev_percentage != percentage:
+                print("training in progress", percentage, "%")
+                print("validation error: %f training error: %f" % (errors['validation'][-1], errors['train'][-1]))
+                prev_percentage = percentage
+
+            # Save model at checkpoints
             if i % save_freq == save_freq - 1:
-                saved_path = saver.save(sess, MODEL_DIR + "/" + name + str(25 * ((i + 1) // save_freq)) + ".ckpt")
+                saved_path = save_model(sess, name + str(25 * ((i + 1) // save_freq)))
                 # print(name + " saved to " + saved_path)
+
+            if errors['train'][-1] < 0.01 \
+                    and (errors['test'][-1] - errors['train'][-1] > overfit_threshold or errors['validation'][-1] -
+                         errors['train'][-1] > overfit_threshold or errors['test'][-1] < overfit_threshold or
+                         errors['validation'][-1] < overfit_threshold):
+                print("Over-fit detected")
+                save_model(sess, name + "_final")
+                break
 
     print("training complete")
     return losses, errors
@@ -154,9 +176,9 @@ def compare_learning_rate(tf_ctx, data, target, epoch, batch_size):
     plt.ylabel("training loss")
 
     for LEARNING_RATE in [0.005, 0.001, 0.0001]:
-        ep_range = range(epoch)
-        losses, _ = train_model(tf_ctx, data, target, LEARNING_RATE, epoch, batch_size,
-                                name="simple_nn_compare_rate")
+        losses, errors = train_model(tf_ctx, data, target, LEARNING_RATE, epoch, batch_size,
+                                     name="simple_nn_compare_rate")
+        ep_range = range(len(losses['train']))
         plt.plot(ep_range, losses['train'], label="learning rate " + str(LEARNING_RATE))
 
     plt.grid()
@@ -165,11 +187,12 @@ def compare_learning_rate(tf_ctx, data, target, epoch, batch_size):
 
 
 def simple_nn_training(tf_ctx, data, target, epoch, batch_size, dropout=False, name="simple_nn",
-                       learning_rate=0.005, wd_coeff=0.0003):
+                       learning_rate=0.005, wd_coeff=0.0003, overfit_threshold=0.03):
     losses, errors = train_model(tf_ctx, data, target,
                                  learning_rate=learning_rate, epoch=epoch, batch_size=batch_size,
-                                 wd_coeff=wd_coeff, name=name, dropout=dropout)
-    ep_range = range(epoch)
+                                 wd_coeff=wd_coeff, name=name, dropout=dropout,
+                                 overfit_threshold=overfit_threshold)
+    ep_range = range(len(losses['train']))
     title_1 = "Losses: " + name
     plt.figure(title_1)
     plt.title(title_1)
@@ -193,6 +216,8 @@ def simple_nn_training(tf_ctx, data, target, epoch, batch_size, dropout=False, n
     plt.grid()
     plt.legend()
     plt.show()
+
+    return losses, errors
 
 
 def create_tf_ctx(x_size, y_size, class_num, layer_sizes):
@@ -307,16 +332,35 @@ def random_train(x_size, y_size, class_num, data, target, name="random"):
     layer_size = random.randint(1, 5)
     layer_sizes = [random.randint(100, 501) for _ in range(layer_size)]
     dropout = random.choice([True, False])
-    wd_coeff = 10 ** random.uniform(-9, -6)
-    learning_rate = 10 ** random.uniform(-7.5, -4.5)
+    wd_coeff = math.exp(random.uniform(-9, -6))
+    learning_rate = math.exp(random.uniform(-7.5, -4.5))
 
     info = "Training with {} layers, dropout={} wd_coeff={} learning_rate={}".format(layer_sizes, dropout, wd_coeff,
                                                                                      learning_rate)
     print(info)
 
     tf_ctx_random = create_tf_ctx(x_size, y_size, class_num, layer_sizes=layer_sizes)
-    simple_nn_training(tf_ctx_random, data, target, epoch=1000, batch_size=3000, name=name,
-                       dropout=dropout, wd_coeff=wd_coeff, learning_rate=learning_rate)
+    _, errors = simple_nn_training(tf_ctx_random, data, target, epoch=1000, batch_size=3000, name=name,
+                                   dropout=dropout, wd_coeff=wd_coeff, learning_rate=learning_rate,
+                                   overfit_threshold=0.05)
+    return min(errors['test']), info
+
+
+def ideal_train(x_size, y_size, class_num, data, target, name="ideal"):
+    layer_sizes = [488, 488]
+    dropout = True
+    wd_coeff = 0.00926529
+    learning_rate = 0.00106265
+
+    info = "Training with {} layers, dropout={} wd_coeff={} learning_rate={}".format(layer_sizes, dropout, wd_coeff,
+                                                                                     learning_rate)
+    print(info)
+
+    tf_ctx_random = create_tf_ctx(x_size, y_size, class_num, layer_sizes=layer_sizes)
+    _, errors = simple_nn_training(tf_ctx_random, data, target, epoch=1000, batch_size=3000, name=name,
+                                   dropout=dropout, wd_coeff=wd_coeff, learning_rate=learning_rate,
+                                   overfit_threshold=0.05)
+    return min(errors['test']), info
 
 
 def main():
@@ -350,9 +394,22 @@ def main():
     visualize_model("1.1.2")
     visualize_model("1.3.1")
 
-    # # 1.4.1
+    # 1.4.1
     for i in range(5):
         random_train(x_size, y_size, class_num, data, target, name="random" + str(i))
+
+    # 1.4.2
+    best_err = 1.0
+    best_model = ""
+    for i in range(100):
+        err, info = random_train(x_size, y_size, class_num, data, target, name="random" + str(i))
+        if err < best_err:
+            best_err = err
+            best_model = info
+
+    print(str(best_err) + ": " + best_model)
+
+    ideal_train(x_size, y_size, class_num, data, target)
 
 
 if __name__ == '__main__':
