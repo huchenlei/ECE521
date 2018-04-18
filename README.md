@@ -2,13 +2,13 @@
 ## Introduction to Machine Learning
 University of Toronto ECE521 2018 S
 
-## Lab 1 K-NN
+## [Lab 1 K-NN](https://drive.google.com/open?id=12HcuDy5r08SOLCgq82S_sQGaA2VIk2Dmi9VPQBosito)
 Simple K-Nearest-Neighbour search in TensorFlow
 
-## Lab 2 Linear Regression and Logistic Regression
+## [Lab 2 Linear Regression and Logistic Regression](https://drive.google.com/open?id=10mFB2yWqjAImmNbKKErAXrP9tryVl01rKr3Far2XYnA)
 Use linear regression and logistic regression as classification method to do multi-class classification
 
-## Lab 3 Neural Networks
+## [Lab 3 Neural Networks](https://drive.google.com/open?id=1HDlZZHobSnLaH-8RN8AreF7oTFBmfOXavS2KkeqvnK0)
 Use single hidden layer neural network to do the same work did in Lab 2  
 Work is dedicated on preventing over-fit.
 
